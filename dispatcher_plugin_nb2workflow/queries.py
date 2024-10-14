@@ -93,8 +93,12 @@ class NB2WSourceQuery(BaseQuery):
         parameters_list.append(token)
         return cls('src_query', parameters_list)
 
+
 class NB2WProductQuery(ProductQuery):
-    def __init__(self, name, backend_product_name, backend_param_dict, backend_output_dict, ontology_path):
+    def __init__(self, name, backend_product_name, backend_param_dict, backend_output_dict, ontology_path=None):
+        if ontology_path is None:
+            # try to get the path from environemnt, else point to server
+            ontology_path = os.environ.get('ODA_ONTOLOGY_PATH', "http://odahub.io/ontology/ontology.ttl")
         self.backend_product_name = backend_product_name
         self.backend_output_dict = backend_output_dict
         self.backend_param_dict = backend_param_dict
@@ -229,3 +233,4 @@ class NB2WInstrumentQuery(InstrumentQuery):
         super().__init__(name, restricted_access=restricted_access)
         self._parameters_list = []
         self._build_par_dictionary()
+
