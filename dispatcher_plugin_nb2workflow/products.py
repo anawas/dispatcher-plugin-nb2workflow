@@ -252,7 +252,7 @@ class NB2WLightCurveProduct(NB2WProduct):
         err_col = None
         if len(data.dtype.names) == 3 and data.dtype.names[2].startswith('ERR'):
             err_col = data.dtype.names[2]
-        x_label = f"TIME, {units['TIME']}"
+        x_label = f"TIME, {units['TIME']}" if 'TIME' in units else 'TIME'
         y_units = getattr(units, data_col, None)
         y_label = f"{data_col}, {y_units}" if y_units else data_col 
         
