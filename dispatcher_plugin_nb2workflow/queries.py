@@ -7,25 +7,15 @@ from .products import (NB2WProduct,
                        NB2WTextProduct,
                        NB2WParameterProduct,
                        NB2WProgressProduct)
-from cdci_data_analysis.analysis.ontology import Ontology
+from oda_api.ontology_helper import Ontology
 import os
-from functools import lru_cache, wraps
-from json import dumps
+from functools import lru_cache
 from copy import deepcopy
-
-class HashableDict(dict):
-    def __hash__(self):
-        return hash(dumps(self, sort_keys=True))
-
-def with_hashable_dict(func):
-    @wraps(func)
-    def wrapper(backend_param_dict, ontology_path):
-        return func(HashableDict(backend_param_dict), ontology_path)
-    return wrapper
+from .util import with_hashable_dict
 
 @with_hashable_dict
 @lru_cache
-def construct_parameter_lists(backend_param_dict, ontology_path):
+def construct_parameter_lists(bk_descript_dict = {}, ontology_path = None):
     src_query_pars_uris = { "http://odahub.io/ontology#PointOfInterestRA": "RA",
                             "http://odahub.io/ontology#PointOfInterestDEC": "DEC",
                             "http://odahub.io/ontology#StartTime": "T1",
@@ -40,7 +30,7 @@ def construct_parameter_lists(backend_param_dict, ontology_path):
     
     plist = []
     source_plist = []
-    for pname, pval in backend_param_dict.items():
+    for pname, pval in bk_descript_dict.items():
         onto = Ontology(ontology_path)
         if pval.get("extra_ttl"):
             onto.parse_extra_triples(pval.get("extra_ttl"), parse_oda_annotations = False)
@@ -81,7 +71,11 @@ class NB2WSourceQuery(BaseQuery):
         parameters_dict = {}
         for product_name in product_names:
             backend_param_dict = backend_options[product_name]['parameters']
-            prod_source_plist = deepcopy(construct_parameter_lists(backend_param_dict, ontology_path)['source_plist'])
+            prod_source_plist = deepcopy(
+                construct_parameter_lists(
+                    bk_descript_dict=backend_param_dict, 
+                    ontology_path=ontology_path
+                    )['source_plist'])
             for par in prod_source_plist:
                 parameters_dict[par.name] = par
         parameters_list = list(parameters_dict.values())
@@ -102,7 +96,9 @@ class NB2WProductQuery(ProductQuery):
         self.backend_product_name = backend_product_name
         self.backend_output_dict = backend_output_dict
         self.backend_param_dict = backend_param_dict
-        parameter_lists = construct_parameter_lists(backend_param_dict, ontology_path)
+        parameter_lists = construct_parameter_lists(
+            bk_descript_dict=backend_param_dict, 
+            ontology_path=ontology_path)
         self.par_name_substitution = parameter_lists['par_name_substitution']
         plist = deepcopy(parameter_lists['prod_plist'])
         self.ontology_path = ontology_path
@@ -171,6 +167,8 @@ class NB2WProductQuery(ProductQuery):
 
         np_dp_list, bin_dp_list, tab_dp_list, bin_im_dp_list, text_dp_list, progress_dp_list = [], [], [], [], [], []
         if api is True:
+            extra_meta = {}
+            prod_uris = {}
             for product in prod_list.prod_list:
                 if isinstance(product, NB2WAstropyTableProduct):
                     tab_dp_list.append(product.dispatcher_data_prod.table_data)
@@ -189,6 +187,12 @@ class NB2WProductQuery(ProductQuery):
                                              'value': product.progress_data})
                 else: # NB2WProduct contains NumpyDataProd by default
                     np_dp_list.append(product.dispatcher_data_prod.data)
+                
+                extra_meta[product.name] = getattr(product, 'extra_metadata', {})
+                prod_uris[product.name] = getattr(product, 'type_key', None)
+
+            query_out.prod_dictionary['extra_metadata'] = extra_meta
+            query_out.prod_dictionary['prod_uris'] = prod_uris
 
             query_out.prod_dictionary['numpy_data_product_list'] = np_dp_list
             query_out.prod_dictionary['astropy_table_product_ascii_list'] = tab_dp_list
@@ -196,8 +200,12 @@ class NB2WProductQuery(ProductQuery):
             query_out.prod_dictionary['binary_image_product_list'] = bin_im_dp_list
             query_out.prod_dictionary['text_product_list'] = text_dp_list
             query_out.prod_dictionary['progress_product_list'] = progress_dp_list
+
         else:
             prod_name_list, file_name_list, image_list, progress_product_list = [], [], [], []
+            extra_meta = {}
+            prod_uris = {}
+
             for product in prod_list.prod_list:
                 if not isinstance(product, NB2WProgressProduct):
                     html_draw = product.get_html_draw()
@@ -213,10 +221,15 @@ class NB2WProductQuery(ProductQuery):
                     progress_product_list.append(html_draw)
 
                 prod_name_list.append(product.name)
+                extra_meta[product.name] = getattr(product, 'extra_metadata', {})
+                prod_uris[product.name] = getattr(product, 'type_key', None)
 
             query_out.prod_dictionary['file_name'] = file_name_list
             query_out.prod_dictionary['image'] = image_list[0] if len(image_list) == 1 else image_list
             query_out.prod_dictionary['name'] = prod_name_list
+            query_out.prod_dictionary['extra_metadata'] = extra_meta
+            query_out.prod_dictionary['prod_uris'] = prod_uris
+            
             if len(prod_list.prod_list) == 1 and isinstance(prod_list.prod_list[0], NB2WProgressProduct):
                 query_out.prod_dictionary['progress_product_html_output'] = progress_product_list
             else:

@@ -11,3 +11,4 @@ download_*
 /venv
 /.idea
 /build
+.lock*

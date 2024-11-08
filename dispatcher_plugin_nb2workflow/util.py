@@ -1,4 +1,9 @@
+import logging
 from html.parser import HTMLParser
+from functools import wraps
+from json import dumps
+
+logger = logging.getLogger()
 
 class AstropyTableViewParser(HTMLParser):
     def handle_starttag(self, tag, attrs):
@@ -29,3 +34,15 @@ class AstropyTableViewParser(HTMLParser):
             self.script = data
         if getattr(self, 'intable', False):
             self.tabcode += data
+
+class HashableDict(dict):
+    def __hash__(self):  #  type: ignore
+        return hash(dumps(self, sort_keys=True))
+
+def with_hashable_dict(func):
+    @wraps(func)
+    def wrapper(*args, bk_descript_dict = {}, ontology_path = None):
+        return func(*args, 
+                    bk_descript_dict=HashableDict(bk_descript_dict), 
+                    ontology_path=ontology_path)
+    return wrapper
