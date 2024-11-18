@@ -16,6 +16,7 @@ from .util import with_hashable_dict
 @with_hashable_dict
 @lru_cache
 def construct_parameter_lists(bk_descript_dict = {}, ontology_path = None):
+    # These are the mandatory parameters at the top of the web page.
     src_query_pars_uris = { "http://odahub.io/ontology#PointOfInterestRA": "RA",
                             "http://odahub.io/ontology#PointOfInterestDEC": "DEC",
                             "http://odahub.io/ontology#StartTime": "T1",
